@@ -292,12 +292,7 @@ if file and st.button('Перевірити матеріал', type='primary'):
 # ==========================================
 
 st.divider()
-st.header("4. ШІ-агент експертизи посібника")
-
-st.info(
-    "Агент аналізує весь витягнутий текст документа "
-    "послідовно, за інструкцією agent_instructions.md."
-)
+st.header("4. Повна експертизи посібника")
 
 if "ai_review" not in st.session_state:
     st.session_state.ai_review = None
@@ -313,7 +308,7 @@ if file is not None:
         st.session_state.ai_review = None
         review = None
 
-    if st.button("Підготувати повну ШІ-експертизу"):
+    if st.button("Підготувати повну експертизу"):
         try:
             blocks_ai, _ = extract_document(file)
             chunks = build_chunks(blocks_ai)
