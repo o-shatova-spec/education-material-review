@@ -11,6 +11,8 @@ import hashlib
 import json
 from agent import build_chunks, review_chunk
 
+import time
+
 st.set_page_config(page_title='Аналіз навчальних посібників', page_icon='📚', layout='wide')
 
 PRAVOPYS_URL = ('https://mova.gov.ua/storage/app/sites/19/2026/rishennja-komisiji/'
@@ -362,31 +364,64 @@ if file is not None:
 
                 else:
 
-                    with st.spinner(
-                        "Триває експертиза посібника..."
-                    ):
+                    
+                    start_time = time.monotonic()
+                    total = len(chunks)
 
-                        for chunk in chunks:
+                    progress = st.progress(
+                        len(results) / total,
+                        text="Підготовка експертизи..."
+                    )
 
-                            number = str(chunk["number"])
+                    status = st.empty()
+                    elapsed = st.empty()
 
-                            # Не перевіряти повторно
-                            # вже опрацьовані фрагменти
-                            if number in results:
-                                continue
+                    for chunk in chunks:
 
-                            response = review_chunk(
-                                chunk,
-                                review["subject"],
-                                review["grade"],
-                                api_key
-                            )
+                        number = str(chunk["number"])
 
-                            results[number] = {
-                                "location": chunk["location"],
-                                "answer": response["answer"],
-                                "model": response["model"]
-                            }
+                        if number in results:
+                            continue
+
+                        status.info(
+                            "Gemini аналізує навчальний "
+                            "матеріал. Зачекайте на відповідь..."
+                        )
+
+                        response = review_chunk(
+                            chunk,
+                            review["subject"],
+                            review["grade"],
+                            api_key
+                        )
+
+                        results[number] = {
+                            "location": chunk["location"],
+                            "answer": response["answer"],
+                            "model": response["model"]
+                        }
+
+                        done = len(results)
+                        percent = int(done / total * 100)
+
+                        progress.progress(
+                            done / total,
+                            text=f"Виконано {percent}%"
+                        )
+
+                        seconds = int(
+                            time.monotonic() - start_time
+                        )
+
+                        elapsed.caption(
+                            f"Час поточного запуску: "
+                            f"{seconds // 60} хв "
+                            f"{seconds % 60} с"
+                        )
+
+                    status.success(
+                        "Усі матеріали опрацьовано."
+                    )
 
                     st.success(
                         "Експертизу завершено!"
