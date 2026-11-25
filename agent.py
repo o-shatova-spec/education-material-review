@@ -1,6 +1,3 @@
-
-"""ШІ-агент для поетапної експертизи навчальних посібників."""
-
 import json
 import re
 from pathlib import Path
@@ -217,7 +214,7 @@ def review_chunk(
             }
         ],
         "temperature": 0.1,
-        "max_tokens": 1500,
+        "max_tokens": 3000,
         "stream": False
     }
 
@@ -276,8 +273,22 @@ def review_chunk(
     answer = message.get("content")
 
     if not isinstance(answer, str) or not answer.strip():
+        finish_reason = choices[0].get(
+            "finish_reason", "невідомо"
+        )
+
+        model_name = result.get("model", model)
+        usage = result.get("usage") or {}
+
+        used_tokens = usage.get(
+            "completion_tokens", "невідомо"
+        )
+
         raise RuntimeError(
-            "Модель повернула порожню відповідь."
+            f"Модель: {model_name}. "
+            f"Причина завершення: {finish_reason}. "
+            f"Вихідних токенів: {used_tokens}. "
+            "Текст експертизи відсутній."
         )
 
     return {
