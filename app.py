@@ -70,11 +70,11 @@ def add_finding(findings, location, category, fragment, advice, evidence='Евр
         'Статус': 'Потребує перевірки фахівцем',
     })
 
+# Гіперпосилання, що зберігаються в DOCX
+    for rel in doc.part.rels.values():
+        if rel.is_external and 'hyperlink' in rel.reltype:
+            links.append(('Гіперпосилання DOCX', str(rel.target_ref)))
 
-        # Гіперпосилання, що зберігаються в DOCX як зовнішні relationships.
-        for rel in doc.part.rels.values():
-            if rel.is_external and 'hyperlink' in rel.reltype:
-                links.append(('Гіперпосилання DOCX (точне місце не визначено)', str(rel.target_ref)))
     return blocks, links
 
 
