@@ -8,7 +8,7 @@ from urllib.request import Request, urlopen
 
 API_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 MODEL = "gemini-3.1-flash-lite"
-MAX_CHARS_PER_CHUNK = 10000
+MAX_CHARS_PER_CHUNK = 4000
 
 
 def load_instructions():
