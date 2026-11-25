@@ -70,13 +70,58 @@ def add_finding(findings, location, category, fragment, advice, evidence='Евр
         'Статус': 'Потребує перевірки фахівцем',
     })
 
-# Гіперпосилання, що зберігаються в DOCX
-    for rel in doc.part.rels.values():
-        if rel.is_external and 'hyperlink' in rel.reltype:
-            links.append(('Гіперпосилання DOCX', str(rel.target_ref)))
+
+def extract_document(file):
+    blocks = []
+    links = []
+    data = file.getvalue()
+
+    if file.name.lower().endswith(".pdf"):
+        with pymupdf.open(
+            stream=data,
+            filetype="pdf"
+        ) as pdf:
+            for page_no, page in enumerate(pdf, 1):
+                text = page.get_text("text")
+                if text.strip():
+                    blocks.append(
+                        (f"Сторінка PDF {page_no}", text)
+                    )
+
+                for link in page.get_links():
+                    url = link.get("uri")
+                    if url:
+                        links.append(
+                            (f"Сторінка PDF {page_no}", url)
+                        )
+
+    elif file.name.lower().endswith(".docx"):
+        doc = Document(BytesIO(data))
+
+        for index, paragraph in enumerate(doc.paragraphs, 1):
+            if paragraph.text.strip():
+                blocks.append(
+                    (f"Абзац {index}", paragraph.text)
+                )
+
+        for t_no, table in enumerate(doc.tables, 1):
+            for r_no, row in enumerate(table.rows, 1):
+                for c_no, cell in enumerate(row.cells, 1):
+                    if cell.text.strip():
+                        location = (
+                            f"Таблиця {t_no}, рядок {r_no}, "
+                            f"комірка {c_no}"
+                        )
+                        blocks.append((location, cell.text))
+
+        # Зовнішні гіперпосилання Word
+        for rel in doc.part.rels.values():
+            if rel.is_external and "hyperlink" in rel.reltype:
+                links.append(
+                    ("Гіперпосилання DOCX", str(rel.target_ref))
+                )
 
     return blocks, links
-
 
 def analyze_source(url, location, findings, seen):
     url = url.strip().rstrip('.,;:!?)]}»')
