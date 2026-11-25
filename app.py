@@ -291,89 +291,90 @@ if file and st.button('Перевірити матеріал', type='primary'):
 # ШІ-АГЕНТ ЕКСПЕРТИЗИ НАВЧАЛЬНИХ ПОСІБНИКІВ
 # ==========================================
 
+
+# ==========================================
+# ПОВНА АВТОМАТИЧНА ЕКСПЕРТИЗА ПОСІБНИКА
+# ==========================================
+
 st.divider()
-st.header("4. Повний аналіз посібника")
+st.header("4. Повна експертиза посібника")
 
 if "ai_review" not in st.session_state:
     st.session_state.ai_review = None
 
 if file is not None:
+
     document_id = hashlib.sha256(
         file.getvalue()
     ).hexdigest()
 
     review = st.session_state.ai_review
 
-    if review and review["document_id"] != document_id:
+    # Новий документ або змінені параметри
+    if review and (
+        review["document_id"] != document_id
+        or review["subject"] != subject
+        or review["grade"] != grade
+    ):
         st.session_state.ai_review = None
         review = None
 
-    if st.button("Підготувати повний аналіз"):
-        try:
-            blocks_ai, _ = extract_document(file)
-            chunks = build_chunks(blocks_ai)
+    if st.button(
+        "Розпочати / продовжити повну експертизу",
+        type="primary"
+    ):
 
-            if not chunks:
-                st.warning("У документі не знайдено тексту.")
-            else:
-                st.session_state.ai_review = {
-                    "document_id": document_id,
-                    "chunks": chunks,
-                    "results": {},
-                    "subject": subject,
-                    "grade": grade,
-                }
-                st.success(
-                    f"Підготовлено {len(chunks)} частин "
-                    "для послідовного аналізу."
-                )
-        except Exception as exc:
+        api_key = st.secrets.get("GEMINI_API_KEY")
+
+        if not api_key:
             st.error(
-                f"Не вдалося підготувати документ: {exc}"
+                "Не знайдено GEMINI_API_KEY "
+                "у налаштуваннях Streamlit Secrets."
             )
 
-    review = st.session_state.ai_review
+        else:
+            try:
 
-    if review:
-        chunks = review["chunks"]
-        results = review["results"]
-        total = len(chunks)
+                if review is None:
 
-        st.progress(
-            len(results) / total,
-            text=(
-                f"Опрацьовано {len(results)} "
-                f"із {total} частин"
-            )
-        )
+                    blocks_ai, _ = extract_document(file)
 
-        remaining = [
-            chunk
-            for chunk in chunks
-            if str(chunk["number"]) not in results
-        ]
+                    chunks = build_chunks(blocks_ai)
 
-        if remaining:
-            if st.button(
-                "Перевірити наступну частину",
-                type="primary"
-            ):
-                try:
-                    api_key = st.secrets.get(
-                         "GEMINI_API_KEY"
+                    review = {
+                        "document_id": document_id,
+                        "subject": subject,
+                        "grade": grade,
+                        "chunks": chunks,
+                        "results": {}
+                    }
+
+                    st.session_state.ai_review = review
+
+                chunks = review["chunks"]
+                results = review["results"]
+
+                if not chunks:
+                    st.warning(
+                        "У документі не знайдено "
+                        "тексту для аналізу."
                     )
 
-                    if not api_key:
-                        st.error(
-                            "Не знайдено API-ключ Gemini "
-                            "у налаштуваннях Secrets."
-                        )
-                    else:
-                        chunk = remaining[0]
+                else:
 
-                        with st.spinner(
-                            f"Аналіз частини {chunk['number']}..."
-                        ):
+                    with st.spinner(
+                        "Триває експертиза посібника..."
+                    ):
+
+                        for chunk in chunks:
+
+                            number = str(chunk["number"])
+
+                            # Не перевіряти повторно
+                            # вже опрацьовані фрагменти
+                            if number in results:
+                                continue
+
                             response = review_chunk(
                                 chunk,
                                 review["subject"],
@@ -381,54 +382,100 @@ if file is not None:
                                 api_key
                             )
 
-                        results[str(chunk["number"])] = {
-                            "location": chunk["location"],
-                            "answer": response["answer"],
-                            "model": response["model"],
-                        }
+                            results[number] = {
+                                "location": chunk["location"],
+                                "answer": response["answer"],
+                                "model": response["model"]
+                            }
 
-                        st.success(
-                            f"Частину {chunk['number']} перевірено."
-                        )
-                        st.rerun()
-
-                except Exception as exc:
-                    st.error(
-                        f"Аналіз не завершено: {exc}"
+                    st.success(
+                        "Експертизу завершено!"
                     )
-        else:
-            st.success(
-                "Усі частини витягнутого тексту "
-                "передано на аналіз."
-            )
 
-        for number, result in sorted(
-            results.items(),
-            key=lambda item: int(item[0])
-        ):
-            with st.expander(
-                f"Частина {number}: {result['location']}"
-            ):
-                st.markdown(result["answer"])
-                st.caption(
-                    f"Модель: {result['model']}"
+            except Exception as exc:
+
+                st.error(
+                    f"Не вдалося завершити аналіз: {exc}"
                 )
 
-        if results:
-            report = {
-                "document_id": document_id,
-                "total_chunks": total,
-                "results": results
-            }
+                st.info(
+                    "Успішно отримані результати "
+                    "збережені в поточній сесії. "
+                    "Натисніть кнопку повторно, "
+                    "щоб продовжити перевірку."
+                )
+
+    review = st.session_state.ai_review
+
+    if review:
+
+        chunks = review["chunks"]
+        results = review["results"]
+
+        # Показуємо звіт лише після
+        # опрацювання всього документа
+        completed = (
+            len(chunks) > 0
+            and len(results) == len(chunks)
+        )
+
+        if completed:
+
+            report_parts = [
+                "# Результати попередньої "
+                "експертизи навчального посібника",
+                f"**Назва:** {name or file.name}",
+                f"**Предмет:** {review['subject']}",
+                f"**Клас:** {review['grade']}",
+                "",
+                "## Виявлені зауваження",
+                ""
+            ]
+
+            for number in sorted(
+                results,
+                key=lambda value: int(value)
+            ):
+
+                result = results[number]
+
+                report_parts.append(
+                    f"### Місце: {result['location']}"
+                )
+
+                report_parts.append(
+                    result["answer"]
+                )
+
+                report_parts.append("")
+
+            report_parts.extend([
+                "---",
+                "*Результат є попереднім "
+                "ШІ-аналізом і потребує "
+                "експертної перевірки.*"
+            ])
+
+            full_report = "\n\n".join(report_parts)
+
+            st.subheader("Результати експертизи")
+
+            st.markdown(full_report)
 
             st.download_button(
-                "Завантажити результати аналізу (JSON)",
+                "Завантажити повний звіт",
+                data=full_report.encode("utf-8"),
+                file_name="expert_review.md",
+                mime="text/markdown"
+            )
+
+            st.download_button(
+                "Завантажити дані експертизи (JSON)",
                 data=json.dumps(
-                    report,
+                    review,
                     ensure_ascii=False,
                     indent=2
                 ),
-                file_name="ai_review_progress.json",
+                file_name="expert_review.json",
                 mime="application/json"
             )
-
