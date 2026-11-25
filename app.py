@@ -7,6 +7,10 @@ import pymupdf
 import streamlit as st
 from docx import Document
 
+import hashlib
+import json
+from agent import build_chunks, review_chunk
+
 st.set_page_config(page_title='Експертиза навчальних посібників', page_icon='📚', layout='wide')
 
 PRAVOPYS_URL = ('https://mova.gov.ua/storage/app/sites/19/2026/rishennja-komisiji/'
@@ -281,4 +285,155 @@ if file and st.button('Перевірити матеріал', type='primary'):
     except Exception as exc:
         st.error(f"Помилка оброблення документа: {type(exc).__name__}: {exc}")
         st.exception(exc)
+
+
+# ==========================================
+# ШІ-АГЕНТ ЕКСПЕРТИЗИ НАВЧАЛЬНИХ ПОСІБНИКІВ
+# ==========================================
+
+st.divider()
+st.header("4. ШІ-агент експертизи посібника")
+
+st.info(
+    "Агент аналізує весь витягнутий текст документа "
+    "послідовно, за інструкцією agent_instructions.md."
+)
+
+if "ai_review" not in st.session_state:
+    st.session_state.ai_review = None
+
+if file is not None:
+    document_id = hashlib.sha256(
+        file.getvalue()
+    ).hexdigest()
+
+    review = st.session_state.ai_review
+
+    if review and review["document_id"] != document_id:
+        st.session_state.ai_review = None
+        review = None
+
+    if st.button("Підготувати повну ШІ-експертизу"):
+        try:
+            blocks_ai, _ = extract_document(file)
+            chunks = build_chunks(blocks_ai)
+
+            if not chunks:
+                st.warning("У документі не знайдено тексту.")
+            else:
+                st.session_state.ai_review = {
+                    "document_id": document_id,
+                    "chunks": chunks,
+                    "results": {},
+                    "subject": subject,
+                    "grade": grade,
+                }
+                st.success(
+                    f"Підготовлено {len(chunks)} частин "
+                    "для послідовної експертизи."
+                )
+        except Exception as exc:
+            st.error(
+                f"Не вдалося підготувати документ: {exc}"
+            )
+
+    review = st.session_state.ai_review
+
+    if review:
+        chunks = review["chunks"]
+        results = review["results"]
+        total = len(chunks)
+
+        st.progress(
+            len(results) / total,
+            text=(
+                f"Опрацьовано {len(results)} "
+                f"із {total} частин"
+            )
+        )
+
+        remaining = [
+            chunk
+            for chunk in chunks
+            if str(chunk["number"]) not in results
+        ]
+
+        if remaining:
+            if st.button(
+                "Перевірити наступну частину через ШІ",
+                type="primary"
+            ):
+                try:
+                    api_key = st.secrets.get(
+                        "OPENROUTER_API_KEY"
+                    )
+
+                    if not api_key:
+                        st.error(
+                            "Не знайдено API-ключ OpenRouter "
+                            "у налаштуваннях Secrets."
+                        )
+                    else:
+                        chunk = remaining[0]
+
+                        with st.spinner(
+                            f"Аналіз частини {chunk['number']}..."
+                        ):
+                            response = review_chunk(
+                                chunk,
+                                review["subject"],
+                                review["grade"],
+                                api_key
+                            )
+
+                        results[str(chunk["number"])] = {
+                            "location": chunk["location"],
+                            "answer": response["answer"],
+                            "model": response["model"],
+                        }
+
+                        st.success(
+                            f"Частину {chunk['number']} перевірено."
+                        )
+                        st.rerun()
+
+                except Exception as exc:
+                    st.error(
+                        f"ШІ-аналіз не завершено: {exc}"
+                    )
+        else:
+            st.success(
+                "Усі частини витягнутого тексту "
+                "передано на ШІ-аналіз."
+            )
+
+        for number, result in sorted(
+            results.items(),
+            key=lambda item: int(item[0])
+        ):
+            with st.expander(
+                f"Частина {number}: {result['location']}"
+            ):
+                st.markdown(result["answer"])
+                st.caption(
+                    f"Модель: {result['model']}"
+                )
+
+        if results:
+            report = {
+                "document_id": document_id,
+                "total_chunks": total,
+                "results": results
+            }
+
+            st.download_button(
+                "Завантажити результати ШІ (JSON)",
+                data=json.dumps(
+                    report,
+                    ensure_ascii=False,
+                    indent=2
+                ),
+                file_name="ai_review_progress.json",
+                mime="application/json"
+            )
 
