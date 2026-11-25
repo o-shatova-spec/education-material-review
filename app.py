@@ -11,7 +11,7 @@ import hashlib
 import json
 from agent import build_chunks, review_chunk
 
-st.set_page_config(page_title='Експертиза навчальних посібників', page_icon='📚', layout='wide')
+st.set_page_config(page_title='Аналіз навчальних посібників', page_icon='📚', layout='wide')
 
 PRAVOPYS_URL = ('https://mova.gov.ua/storage/app/sites/19/2026/rishennja-komisiji/'
                 '01-03/sdm-ukrayinskii-pravopis-vidannia.pdf')
@@ -247,7 +247,7 @@ def csv_bytes(findings):
     return out.getvalue().encode('utf-8-sig')
 
 
-st.title('Експертиза навчальних посібників')
+st.title('Аналіз навчальних посібників')
 st.caption('Прототип: мовні конструкції, англіцизми, джерела та попередня вікова доступність')
 st.warning('Використовуйте лише відкриті або спеціально підготовлені матеріали. Не завантажуйте конфіденційні документи УІРО.')
 st.markdown(f'Нормативне джерело: [Український правопис (2026)]({PRAVOPYS_URL}). PDF є джерелом норм, але не автоматичним коректором.')
