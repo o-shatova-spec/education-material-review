@@ -365,12 +365,12 @@ if file is not None:
             ):
                 try:
                     api_key = st.secrets.get(
-                        "OPENROUTER_API_KEY"
+                         "GEMINI_API_KEY"
                     )
 
                     if not api_key:
                         st.error(
-                            "Не знайдено API-ключ OpenRouter "
+                            "Не знайдено API-ключ Gemini "
                             "у налаштуваннях Secrets."
                         )
                     else:
