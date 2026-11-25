@@ -8,7 +8,7 @@ from urllib.request import Request, urlopen
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 # Маршрутизатор безкоштовних моделей OpenRouter
-MODEL = "openrouter/free"
+MODEL = "google/gemma-4-26b-a4b-it:free"
 
 # Розмір однієї частини, а не всього посібника
 MAX_CHARS_PER_CHUNK = 4000
@@ -215,7 +215,10 @@ def review_chunk(
         ],
         "temperature": 0.1,
         "max_tokens": 3000,
-        "stream": False
+        "reasoning": {
+         "enabled": False
+         },
+         "stream": False
     }
 
     request = Request(
