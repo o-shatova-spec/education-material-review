@@ -143,12 +143,66 @@ def analyze_source(url, location, findings, seen):
         )
 
 
+
+# МОДУЛЬ ЛОГІКО-СЕМАНТИЧНОЇ ПЕРЕВІРКИ
+
+SEMANTIC_RULES = [
+    {
+        "pattern": (
+            r"\bтемператур\w*\b.{0,65}"
+            r"\bлінійк\w*\b"
+        ),
+        "issue": "Можлива поняттєва невідповідність",
+        "advice": (
+            "Перевірити, чи не стверджується, "
+            "що температуру вимірюють лінійкою. "
+            "Для вимірювання температури "
+            "використовують термометр."
+        ),
+    },
+    {
+        "pattern": (
+            r"\bдеревин\w*\b.{0,55}"
+            r"\bметал(?:ом|евим|евою|еві)\b"
+        ),
+        "issue": "Можлива наукова помилка",
+        "advice": (
+            "Перевірити класифікацію матеріалу. "
+            "Деревина не належить до металів."
+        ),
+    },
+]
+
+
+def analyze_semantics(text, location, findings):
+    sentences = re.split(
+        r"(?<=[.!?])\s+",
+        text.replace("\n", " ")
+    )
+
+    for sentence in sentences:
+        for rule in SEMANTIC_RULES:
+            if re.search(
+                rule["pattern"],
+                sentence,
+                flags=re.IGNORECASE
+            ):
+                add_finding(
+                    findings,
+                    location,
+                    rule["issue"],
+                    sentence[:350],
+                    rule["advice"],
+                    "Попередня контекстна перевірка"
+                )
+
 def analyze(blocks, links):
     findings = []
     seen_urls = set()
     total_chars = 0
     for location, text in blocks:
         total_chars += len(text)
+        analyze_semantics(text, location, findings)
         for pattern, category, advice in RULES:
             for match in re.finditer(pattern, text, flags=re.IGNORECASE):
                 a, b = max(0, match.start()-55), min(len(text), match.end()+55)
