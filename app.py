@@ -292,7 +292,7 @@ if file and st.button('Перевірити матеріал', type='primary'):
 # ==========================================
 
 st.divider()
-st.header("4. Повна експертизи посібника")
+st.header("4. Повний аналіз посібника")
 
 if "ai_review" not in st.session_state:
     st.session_state.ai_review = None
@@ -308,7 +308,7 @@ if file is not None:
         st.session_state.ai_review = None
         review = None
 
-    if st.button("Підготувати повну експертизу"):
+    if st.button("Підготувати повний аналіз"):
         try:
             blocks_ai, _ = extract_document(file)
             chunks = build_chunks(blocks_ai)
@@ -325,7 +325,7 @@ if file is not None:
                 }
                 st.success(
                     f"Підготовлено {len(chunks)} частин "
-                    "для послідовної експертизи."
+                    "для послідовного аналізу."
                 )
         except Exception as exc:
             st.error(
@@ -355,7 +355,7 @@ if file is not None:
 
         if remaining:
             if st.button(
-                "Перевірити наступну частину через ШІ",
+                "Перевірити наступну частину",
                 type="primary"
             ):
                 try:
@@ -394,12 +394,12 @@ if file is not None:
 
                 except Exception as exc:
                     st.error(
-                        f"ШІ-аналіз не завершено: {exc}"
+                        f"Аналіз не завершено: {exc}"
                     )
         else:
             st.success(
                 "Усі частини витягнутого тексту "
-                "передано на ШІ-аналіз."
+                "передано на аналіз."
             )
 
         for number, result in sorted(
@@ -422,7 +422,7 @@ if file is not None:
             }
 
             st.download_button(
-                "Завантажити результати ШІ (JSON)",
+                "Завантажити результати аналізу (JSON)",
                 data=json.dumps(
                     report,
                     ensure_ascii=False,
